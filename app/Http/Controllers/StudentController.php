@@ -7,22 +7,59 @@ use Illuminate\Http\Request;
 class StudentController extends Controller
 {
     public function dex(Request $request)
-    {
-        $students = Student::query();
+{
+    $query = Student::query();
 
-        // Filtering
-        if ($request->has('course')) {
-            $students->where('course', $request->course);
-        }
-        if ($request->has('year')) {
-            $students->where('year', $request->year);
-        }
-        if ($request->has('section')) {
-            $students->where('section', $request->section);
-        }
-
-        return response()->json($students->get());
+    if ($request->has('search')) {
+        $query->where(function ($q) use ($request) {
+            $q->where('firstname', 'like', '%' . $request->search . '%')
+              ->orWhere('lastname', 'like', '%' . $request->search . '%')
+              ->orWhere('address', 'like', '%' . $request->search . '%');
+        });
     }
+
+    if ($request->has('course')) {
+        $query->where('course', $request->course);
+    }
+
+    if ($request->has('year')) {
+        $query->where('year', $request->year);
+    }
+
+    if ($request->has('section')) {
+        $query->where('section', $request->section);
+    }
+
+    if ($request->has('sort')) {
+        $sort = ltrim($request->sort, '-');
+        $direction = $request->sort[0] === '-' ? 'desc' : 'asc';
+        $query->orderBy($sort, $direction);
+    }
+
+    if ($request->has('fields')) {
+        $fields = explode(',', $request->fields);
+        $query->select($fields);
+    }
+
+    $limit = $request->get('limit', 15);
+    $offset = $request->get('offset', 0);
+
+    $students = $query->limit($limit)->offset($offset)->get();
+
+    $metadata = [
+        'count' => $students->count(),
+        'search' => $request->get('search', null),
+        'limit' => $limit,
+        'offset' => $offset,
+        'fields' => $request->get('fields', []),
+    ];
+
+    return response()->json([
+        'metadata' => $metadata,
+        'students' => $students,
+    ]);
+}
+
 
     public function stoe(Request $request)
     {
